@@ -5,10 +5,10 @@ version: 2.1
 ######### High-level workflow #########
 workflows:
   version: 2.1
-  build-deploy:
+  build-lint-test:
     jobs:
       - build
-      - flake:
+      - lint:
           requires:
             - build
       - test:
@@ -23,7 +23,7 @@ jobs:
       - install_circleci_dependencies
       - setup_and_build_workspace
 
-  flake:
+  lint:
     executor: docker_exec
     steps:
       - install_circleci_dependencies
