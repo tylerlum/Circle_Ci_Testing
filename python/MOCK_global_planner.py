@@ -17,17 +17,23 @@ AVG_WAYPOINT_DISTANCE_KM = 30  # TODO: Set this to match global pathfinding
 # Global variables for tracking boat position
 boatLat = None
 boatLon = None
+
+
 def gpsCallback(data):
     global boatLat
     global boatLon
     boatLat = data.lat
     boatLon = data.lon
 
+
 # Global variable for speedup
 speedup = 1.0
+
+
 def speedupCallback(data):
     global speedup
     speedup = data.data
+
 
 def create_path(init, goal):
     path = []
@@ -43,9 +49,9 @@ def create_path(init, goal):
     num_global_waypoints = int(round(total_distance_km / AVG_WAYPOINT_DISTANCE_KM))
 
     for i in range(1, num_global_waypoints):
-        coeff = float(i)/(num_global_waypoints)
-        lat = (1 - coeff)*init[0] + coeff*goal[0]
-        lon = (1 - coeff)*init[1] + coeff*goal[1]
+        coeff = float(i) / (num_global_waypoints)
+        lat = (1 - coeff) * init[0] + coeff * goal[0]
+        lon = (1 - coeff) * init[1] + coeff * goal[1]
         print(lat, lon)
         wp = msg.latlon()
         wp.lat = lat
@@ -58,6 +64,7 @@ def create_path(init, goal):
     last_wp.lon = goal[1]
     path.append(last_wp)
     return path
+
 
 def MOCK_global():
     global boatLat
@@ -110,6 +117,7 @@ def MOCK_global():
 
         pub.publish(msg.path(path))
         r.sleep()
+
 
 if __name__ == '__main__':
     MOCK_global()

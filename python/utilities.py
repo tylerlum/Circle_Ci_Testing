@@ -12,7 +12,7 @@ import sys
 from plotting import plot_path, plot_path_2
 from updated_geometric_planner import plan, indexOfObstacleOnPath
 import planner_helpers as ph
-import math 
+import math
 from geopy.distance import distance
 import geopy.distance
 from std_msgs.msg import Float64
@@ -36,11 +36,19 @@ MAX_ALLOWABLE_PATHFINDING_TOTAL_RUNTIME_SECONDS = 20.0
 INCREASE_RUNTIME_FACTOR = 1.5
 OBSTACLE_SHRINK_FACTOR = 1.2
 
-# Scale NUM_LOOK_AHEAD_WAYPOINTS_FOR_OBSTACLES and NUM_LOOK_AHEAD_WAYPOINTS_FOR_UPWIND_DOWNWIND to change based on waypoint distance
+# Scale NUM_LOOK_AHEAD_WAYPOINTS_FOR_OBSTACLES and
+# NUM_LOOK_AHEAD_WAYPOINTS_FOR_UPWIND_DOWNWIND to change based on waypoint
+# distance
 LOOK_AHEAD_FOR_OBSTACLES_KM = 20
-NUM_LOOK_AHEAD_WAYPOINTS_FOR_OBSTACLES = int(math.ceil(LOOK_AHEAD_FOR_OBSTACLES_KM / AVG_DISTANCE_BETWEEN_LOCAL_WAYPOINTS_KM))
+NUM_LOOK_AHEAD_WAYPOINTS_FOR_OBSTACLES = int(
+    math.ceil(
+        LOOK_AHEAD_FOR_OBSTACLES_KM /
+        AVG_DISTANCE_BETWEEN_LOCAL_WAYPOINTS_KM))
 LOOK_AHEAD_FOR_UPWIND_DOWNWIND_KM = 10
-NUM_LOOK_AHEAD_WAYPOINTS_FOR_UPWIND_DOWNWIND = int(math.ceil(LOOK_AHEAD_FOR_UPWIND_DOWNWIND_KM / AVG_DISTANCE_BETWEEN_LOCAL_WAYPOINTS_KM))
+NUM_LOOK_AHEAD_WAYPOINTS_FOR_UPWIND_DOWNWIND = int(
+    math.ceil(
+        LOOK_AHEAD_FOR_UPWIND_DOWNWIND_KM /
+        AVG_DISTANCE_BETWEEN_LOCAL_WAYPOINTS_KM))
 
 # Constants for bearing and heading
 BEARING_NORTH = 0
@@ -62,7 +70,8 @@ BOAT_BACKWARD = 270
 # Constants for modeling AIS boats
 AIS_BOAT_RADIUS_KM = 0.2
 AIS_BOAT_LENGTH_KM = 1
-AIS_BOAT_CIRCLE_SPACING_KM = AIS_BOAT_RADIUS_KM * 1.5  # Distance between circles that make up an AIS boat
+# Distance between circles that make up an AIS boat
+AIS_BOAT_CIRCLE_SPACING_KM = AIS_BOAT_RADIUS_KM * 1.5
 
 # Upwind downwind detection
 UPWIND_DOWNWIND_TIME_LIMIT_SECONDS = 1.5
@@ -75,6 +84,7 @@ MAX_ALLOWABLE_DISTANCE_FINAL_WAYPOINT_TO_GOAL_KM = GLOBAL_WAYPOINT_REACHED_RADIU
 WEDGE_EXPAND_ANGLE_DEGREES = 10.0
 OBSTACLE_MAX_TIME_TO_LOC_HOURS = 3  # Do not extend objects more than X hours distance
 
+
 class OMPLPath:
     """ Class for storing an OMPL configuration, OMPL path, and the referenceLatlon
 
@@ -83,12 +93,13 @@ class OMPLPath:
         _solutionPath (ompl.geometric._geometric.PathGeometric): PathGeometric object that represents the path, in XY coordinates with respect to a referenceLatlon
         _referenceLatlon (local_pathfinding.msg._latlon.latlon): latlon object that is the reference point with which the path's XY coordinates is set.
     """
+
     def __init__(self, ss, solutionPath, referenceLatlon):
         self._ss = ss
         self._solutionPath = solutionPath
         self._referenceLatlon = referenceLatlon
 
-    ## Simple getter methods
+    # Simple getter methods
     def getReferenceLatlon(self):
         return self._referenceLatlon
 
@@ -104,7 +115,7 @@ class OMPLPath:
     def getSpaceInformation(self):
         return self._ss.getSpaceInformation()
 
-    ## Longer getter methods
+    # Longer getter methods
     def getCost(self):
         return self._solutionPath.cost(self._ss.getOptimizationObjective()).value()
 
@@ -116,17 +127,23 @@ class OMPLPath:
             objective = optimizationObjective.getObjective(i)
             weight = optimizationObjective.getObjectiveWeight(i)
             cost = self._solutionPath.cost(objective).value()
-            strings.append("{}: Cost = {}. Weight = {}. Weighted Cost = {} |||| ".format(type(objective).__name__, cost, weight, cost * weight))
+            strings.append(
+                "{}: Cost = {}. Weight = {}. Weighted Cost = {} |||| ".format(
+                    type(objective).__name__, cost, weight, cost * weight))
         strings.append("--------------------------------------------------- ")
-        strings.append("{}: Total Cost = {}".format(type(optimizationObjective).__name__, self._solutionPath.cost(optimizationObjective).value()))
+        strings.append(
+            "{}: Total Cost = {}".format(
+                type(optimizationObjective).__name__,
+                self._solutionPath.cost(optimizationObjective).value()))
 
         output = ''.join(strings)
         return output
 
-    ## Methods that modify the class
+    # Methods that modify the class
     def updateWindDirection(self, state):
         # Set wind direction for cost evaluation
-        globalWindSpeedKmph, globalWindDirectionDegrees = measuredWindToGlobalWind(state.measuredWindSpeedKmph, state.measuredWindDirectionDegrees, state.speedKmph, state.headingDegrees)
+        globalWindSpeedKmph, globalWindDirectionDegrees = measuredWindToGlobalWind(
+            state.measuredWindSpeedKmph, state.measuredWindDirectionDegrees, state.speedKmph, state.headingDegrees)
         objective = self._ss.getOptimizationObjective()  # Assumes balanced objective
 
         for i in range(objective.getObjectiveCount()):
@@ -138,7 +155,11 @@ class OMPLPath:
 
     def updateObstacles(self, state):
         # Set the objects used to check which states in the space are valid
-        obstacles = getObstacles(state.AISData.ships, state.position, state.speedKmph, self._referenceLatlon)
+        obstacles = getObstacles(
+            state.AISData.ships,
+            state.position,
+            state.speedKmph,
+            self._referenceLatlon)
         validity_checker = ph.ValidityChecker(self._ss.getSpaceInformation(), obstacles)
         self._ss.setStateValidityChecker(validity_checker)
 
@@ -219,16 +240,25 @@ class OMPLPath:
         lengthAfter = self._solutionPath.getStateCount()
 
         # Only add in boat position as waypoint if edge case is avoided (described above)
-        boatCouldGoWrongDirection = self.getStateSpace().distance(positionXY, self._solutionPath.getState(1)) < self.getStateSpace().distance(self._solutionPath.getState(0), self._solutionPath.getState(1))
-        edgeCase = (lengthBefore - lengthAfter == 0) or ((lengthBefore - lengthAfter == 1) and boatCouldGoWrongDirection)
+        boatCouldGoWrongDirection = self.getStateSpace().distance(
+            positionXY, self._solutionPath.getState(1)) < self.getStateSpace().distance(
+            self._solutionPath.getState(0), self._solutionPath.getState(1))
+        edgeCase = (
+            lengthBefore -
+            lengthAfter == 0) or (
+            (lengthBefore -
+             lengthAfter == 1) and boatCouldGoWrongDirection)
         if not edgeCase:
             self._solutionPath.prepend(positionXY)
+
 
 class Path:
     def __init__(self, omplPath):
         self._omplPath = omplPath
         self._latlons = self._getLatlonsFromOMPLPath(self._omplPath)
-        self._nextWaypointIndex = 1  # Next waypoint index is always 1, as the boat should always be aiming for the next upcoming waypoint
+        # Next waypoint index is always 1, as the boat should always be aiming for
+        # the next upcoming waypoint
+        self._nextWaypointIndex = 1
 
     def _getLatlonsFromOMPLPath(self, omplPath):
         # Convert solution path (in km WRT reference) into list of latlons
@@ -250,7 +280,9 @@ class Path:
 
             # If index out of range, return last waypoint in path
             if pathIndex >= len(path):
-                rospy.logwarn("Path index is out of range: index = {} len(path) = {}".format(pathIndex, len(path)))
+                rospy.logwarn(
+                    "Path index is out of range: index = {} len(path) = {}".format(
+                        pathIndex, len(path)))
                 rospy.logwarn("Setting waypoint to be the last element of the path")
                 pathIndex = len(path) - 1
                 return path[pathIndex]
@@ -277,7 +309,9 @@ class Path:
         lastWaypointLatlon = self._latlons[len(self._latlons) - 1]
         lastWaypoint = (lastWaypointLatlon.lat, lastWaypointLatlon.lon)
         goal = (goalLatlon.lat, goalLatlon.lon)
-        return distance(lastWaypoint, goal).kilometers <= MAX_ALLOWABLE_DISTANCE_FINAL_WAYPOINT_TO_GOAL_KM
+        return distance(
+            lastWaypoint,
+            goal).kilometers <= MAX_ALLOWABLE_DISTANCE_FINAL_WAYPOINT_TO_GOAL_KM
 
     def nextWaypointReached(self, positionLatlon):
         # Convert from latlons to XY
@@ -290,7 +324,7 @@ class Path:
         nextWaypointX, nextWaypointY = latlonToXY(nextWaypointLatlon, refLatlon)
 
         # Handle edge cases where waypoints have the same x or y component
-        isStartNorth = nextWaypointY < previousWaypointY 
+        isStartNorth = nextWaypointY < previousWaypointY
         isStartEast = nextWaypointX < previousWaypointX
         if nextWaypointX == previousWaypointX:
             if isStartNorth:
@@ -303,16 +337,18 @@ class Path:
             else:
                 return positionX >= nextWaypointX
 
-        # Create line in form y = mx + b that is perpendicular to the line from previousWaypoint to nextWaypoint
+        # Create line in form y = mx + b that is perpendicular to the line from
+        # previousWaypoint to nextWaypoint
         tangentSlope = (nextWaypointY - previousWaypointY) / (nextWaypointX - previousWaypointX)
-        normalSlope = -1/tangentSlope
+        normalSlope = -1 / tangentSlope
 
         if nextWaypointX > 0:
             b = nextWaypointY + normalSlope * -math.fabs(nextWaypointX)
         else:
             b = nextWaypointY + normalSlope * math.fabs(nextWaypointX)
-        y = lambda x: normalSlope * x + b
-        x = lambda y: (y - b) / normalSlope 
+
+        def y(x): return normalSlope * x + b
+        def x(y): return (y - b) / normalSlope
 
     #    plt.xlim(-20, 20)
     #    plt.ylim(-20, 20)
@@ -325,13 +361,13 @@ class Path:
     #    plt.show()
 
         # Check if the line has been crossed
-        if isStartNorth: 
+        if isStartNorth:
             if positionY < y(positionX):
                 return True
         elif positionY > y(positionX):
             return True
 
-        if isStartEast: 
+        if isStartEast:
             if positionX < x(positionY):
                 return True
         elif positionX > x(positionY):
@@ -377,64 +413,90 @@ class Path:
             numLookAheadWaypoints = maxNumLookAheadWaypoints
 
         # Calculate global wind from measured wind and boat state
-        globalWindSpeedKmph, globalWindDirectionDegrees = measuredWindToGlobalWind(state.measuredWindSpeedKmph, state.measuredWindDirectionDegrees, state.speedKmph, state.headingDegrees)
-    
-        # Get relevant waypoints (boat position first, then the next numLookAheadWaypoints startin from nextLocalWaypoint onwards)
+        globalWindSpeedKmph, globalWindDirectionDegrees = measuredWindToGlobalWind(
+            state.measuredWindSpeedKmph, state.measuredWindDirectionDegrees, state.speedKmph, state.headingDegrees)
+
+        # Get relevant waypoints (boat position first, then the next
+        # numLookAheadWaypoints startin from nextLocalWaypoint onwards)
         relevantWaypoints = []
         relevantWaypoints.append(latlonToXY(state.position, self.getReferenceLatlon()))
-        for waypointIndex in range(self.getNextWaypointIndex(), self.getNextWaypointIndex() + numLookAheadWaypoints):
+        for waypointIndex in range(
+                self.getNextWaypointIndex(),
+                self.getNextWaypointIndex() +
+                numLookAheadWaypoints):
             waypoint = self._omplPath.getSolutionPath().getState(waypointIndex)
             relevantWaypoints.append([waypoint.getX(), waypoint.getY()])
-    
+
         # Check relevantWaypoints for upwind or downwind sailing
         upwindOrDownwind = False
         for waypointIndex in range(1, len(relevantWaypoints)):
             # Calculate required heading between waypoints
             waypoint = relevantWaypoints[waypointIndex]
             prevWaypoint = relevantWaypoints[waypointIndex - 1]
-            requiredHeadingDegrees = math.degrees(math.atan2(waypoint[1] - prevWaypoint[1], waypoint[0] - prevWaypoint[0]))
-    
-            if ph.isDownwind(math.radians(globalWindDirectionDegrees), math.radians(requiredHeadingDegrees)):
+            requiredHeadingDegrees = math.degrees(
+                math.atan2(
+                    waypoint[1] -
+                    prevWaypoint[1],
+                    waypoint[0] -
+                    prevWaypoint[0]))
+
+            if ph.isDownwind(
+                    math.radians(globalWindDirectionDegrees),
+                    math.radians(requiredHeadingDegrees)):
                 if showWarnings:
-                    rospy.loginfo("Downwind sailing on path detected. globalWindDirectionDegrees: {}. requiredHeadingDegrees: {}. waypointIndex: {}".format(globalWindDirectionDegrees, requiredHeadingDegrees, waypointIndex))
+                    rospy.loginfo(
+                        "Downwind sailing on path detected. globalWindDirectionDegrees: {}. requiredHeadingDegrees: {}. waypointIndex: {}".format(
+                            globalWindDirectionDegrees, requiredHeadingDegrees, waypointIndex))
                 upwindOrDownwind = True
                 break
-    
+
             elif ph.isUpwind(math.radians(globalWindDirectionDegrees), math.radians(requiredHeadingDegrees)):
                 if showWarnings:
-                    rospy.loginfo("Upwind sailing on path detected. globalWindDirectionDegrees: {}. requiredHeadingDegrees: {}. waypointIndex: {}".format(globalWindDirectionDegrees, requiredHeadingDegrees, waypointIndex))
+                    rospy.loginfo(
+                        "Upwind sailing on path detected. globalWindDirectionDegrees: {}. requiredHeadingDegrees: {}. waypointIndex: {}".format(
+                            globalWindDirectionDegrees, requiredHeadingDegrees, waypointIndex))
                 upwindOrDownwind = True
                 break
-    
+
         # Set counter to 0 on first use
         try:
             firstTime = self.lastTimeNotUpwindOrDownwind is None
         except AttributeError:
             rospy.loginfo("Handling first time case in upwindOrDownwindOnPath()")
             self.lastTimeNotUpwindOrDownwind = time.time()
-    
+
         # Reset last time not upwind/downwind
         if not upwindOrDownwind:
             self.lastTimeNotUpwindOrDownwind = time.time()
             return False
-    
+
         # Return true only if upwindOrDownwind for enough time
         consecutiveUpwindOrDownwindTimeSeconds = time.time() - self.lastTimeNotUpwindOrDownwind
         if consecutiveUpwindOrDownwindTimeSeconds >= UPWIND_DOWNWIND_TIME_LIMIT_SECONDS:
             if showWarnings:
-                rospy.logwarn("Upwind/downwind sailing detected for {} seconds consecutively, which is greater than the {} second limit. This officially counts as upwind/downwind".format(consecutiveUpwindOrDownwindTimeSeconds, UPWIND_DOWNWIND_TIME_LIMIT_SECONDS))
+                rospy.logwarn(
+                    "Upwind/downwind sailing detected for {} seconds consecutively, which is greater than the {} second limit. This officially counts as upwind/downwind".format(
+                        consecutiveUpwindOrDownwindTimeSeconds,
+                        UPWIND_DOWNWIND_TIME_LIMIT_SECONDS))
             self.lastTimeNotUpwindOrDownwind = time.time()
             return True
         else:
             if showWarnings:
-                rospy.loginfo("Upwind/downwind sailing detected for only {} seconds consecutively, which is less than the {} second limit. This does not count as upwind/downwind sailing yet.".format(consecutiveUpwindOrDownwindTimeSeconds, UPWIND_DOWNWIND_TIME_LIMIT_SECONDS))
+                rospy.loginfo(
+                    "Upwind/downwind sailing detected for only {} seconds consecutively, which is less than the {} second limit. This does not count as upwind/downwind sailing yet.".format(
+                        consecutiveUpwindOrDownwindTimeSeconds,
+                        UPWIND_DOWNWIND_TIME_LIMIT_SECONDS))
             return False
-    
+
     def obstacleOnPath(self, state, numLookAheadWaypoints=None, showWarnings=False):
         # Check if path will hit objects
         positionXY = latlonToXY(state.position, self.getReferenceLatlon())
-        obstacles = getObstacles(state.AISData.ships, state.position, state.speedKmph, self.getReferenceLatlon())
-    
+        obstacles = getObstacles(
+            state.AISData.ships,
+            state.position,
+            state.speedKmph,
+            self.getReferenceLatlon())
+
         # Ensure nextLocalWaypointIndex + numLookAheadWaypoints is in bounds
         '''
         Let path = [(0,0), (1,1), (2,2), (3,3), (4,4)], len(path) = 5
@@ -449,12 +511,14 @@ class Path:
         maxNumLookAheadWaypoints = self.getLength() - self.getNextWaypointIndex()
         if numLookAheadWaypoints is None or numLookAheadWaypoints > maxNumLookAheadWaypoints:
             numLookAheadWaypoints = maxNumLookAheadWaypoints
-    
+
         self.updateObstacles(state)
-        waypointIndexWithObstacle = indexOfObstacleOnPath(positionXY, self.getNextWaypointIndex(), numLookAheadWaypoints, self._omplPath)
+        waypointIndexWithObstacle = indexOfObstacleOnPath(
+            positionXY, self.getNextWaypointIndex(), numLookAheadWaypoints, self._omplPath)
         if waypointIndexWithObstacle != -1:
             if showWarnings:
-                rospy.logwarn("Obstacle on path. waypointIndexWithObstacle: {}".format(waypointIndexWithObstacle))
+                rospy.logwarn(
+                    "Obstacle on path. waypointIndexWithObstacle: {}".format(waypointIndexWithObstacle))
             return True
         return False
 
@@ -487,23 +551,43 @@ def takeScreenshot():
     myScreenshot.save(fullImagePath)
     rospy.loginfo("Screenshot saved to {}".format(fullImagePath))
 
+
 def latlonToXY(latlon, referenceLatlon):
-    x = distance((referenceLatlon.lat, referenceLatlon.lon), (referenceLatlon.lat, latlon.lon)).kilometers
-    y = distance((referenceLatlon.lat, referenceLatlon.lon), (latlon.lat, referenceLatlon.lon)).kilometers
+    x = distance((referenceLatlon.lat, referenceLatlon.lon),
+                 (referenceLatlon.lat, latlon.lon)).kilometers
+    y = distance((referenceLatlon.lat, referenceLatlon.lon),
+                 (latlon.lat, referenceLatlon.lon)).kilometers
     if referenceLatlon.lon > latlon.lon:
         x = -x
     if referenceLatlon.lat > latlon.lat:
         y = -y
-    return [x,y]
+    return [x, y]
+
 
 def XYToLatlon(xy, referenceLatlon):
-    x_distance = geopy.distance.distance(kilometers = xy[0])
-    y_distance = geopy.distance.distance(kilometers = xy[1])
-    destination = x_distance.destination(point=(referenceLatlon.lat, referenceLatlon.lon), bearing=BEARING_EAST)
-    destination = y_distance.destination(point=(destination.latitude, destination.longitude), bearing=BEARING_NORTH)
+    x_distance = geopy.distance.distance(kilometers=xy[0])
+    y_distance = geopy.distance.distance(kilometers=xy[1])
+    destination = x_distance.destination(
+        point=(
+            referenceLatlon.lat,
+            referenceLatlon.lon),
+        bearing=BEARING_EAST)
+    destination = y_distance.destination(
+        point=(
+            destination.latitude,
+            destination.longitude),
+        bearing=BEARING_NORTH)
     return latlon(destination.latitude, destination.longitude)
 
-def plotPathfindingProblem(globalWindDirectionDegrees, dimensions, start, goal, obstacles, headingDegrees, amountObstaclesShrinked):
+
+def plotPathfindingProblem(
+        globalWindDirectionDegrees,
+        dimensions,
+        start,
+        goal,
+        obstacles,
+        headingDegrees,
+        amountObstaclesShrinked):
     # Clear plot if already there
     plt.cla()
 
@@ -512,8 +596,12 @@ def plotPathfindingProblem(globalWindDirectionDegrees, dimensions, start, goal, 
     markersize = min(x_max - x_min, y_max - y_min) / 2
     plt.ion()
     axes = plt.gca()
-    goalPlot, = axes.plot(goal[0], goal[1], marker='*', color='y', markersize=markersize)                          # Yellow star
-    startPlot, = axes.plot(start[0], start[1], marker=(3,0,headingDegrees - 90), color='r', markersize=markersize) # Red triangle with correct heading. The (-90) is because the triangle default heading 0 points North, but this heading has 0 be East.
+    goalPlot, = axes.plot(goal[0], goal[1], marker='*', color='y',
+                          markersize=markersize)                          # Yellow star
+    # Red triangle with correct heading. The (-90) is because the triangle
+    # default heading 0 points North, but this heading has 0 be East.
+    startPlot, = axes.plot(start[0], start[1], marker=(
+        3, 0, headingDegrees - 90), color='r', markersize=markersize)
 
     # Setup plot xy limits and labels
     axes.set_xlim(x_min, x_max)
@@ -522,23 +610,51 @@ def plotPathfindingProblem(globalWindDirectionDegrees, dimensions, start, goal, 
     plt.grid(True)
     axes.set_xlabel('X distance to position (km)')
     axes.set_ylabel('Y distance to position (km)')
-    axes.set_title('Setup of pathfinding problem (amountObstaclesShrinked = {})'.format(amountObstaclesShrinked))
+    axes.set_title('Setup of pathfinding problem (amountObstaclesShrinked = {})'.format(
+        amountObstaclesShrinked))
 
     # Add boats and wind speed arrow
     for obstacle in obstacles:
         obstacle.addPatch(axes)
 
-    arrowLength = min(dimensions[2]-dimensions[0], dimensions[3]-dimensions[1]) / 15
-    arrowCenter = (dimensions[0] + 1.5*arrowLength, dimensions[3] - 1.5*arrowLength)
-    arrowStart = (arrowCenter[0] - 0.5*arrowLength*math.cos(math.radians(globalWindDirectionDegrees)), arrowCenter[1] - 0.5*arrowLength*math.sin(math.radians(globalWindDirectionDegrees)))
-    windDirection = patches.FancyArrow(arrowStart[0], arrowStart[1], arrowLength*math.cos(math.radians(globalWindDirectionDegrees)), arrowLength*math.sin(math.radians(globalWindDirectionDegrees)), width=arrowLength/4)
+    arrowLength = min(dimensions[2] - dimensions[0], dimensions[3] - dimensions[1]) / 15
+    arrowCenter = (dimensions[0] + 1.5 * arrowLength, dimensions[3] - 1.5 * arrowLength)
+    arrowStart = (
+        arrowCenter[0] -
+        0.5 *
+        arrowLength *
+        math.cos(
+            math.radians(globalWindDirectionDegrees)),
+        arrowCenter[1] -
+        0.5 *
+        arrowLength *
+        math.sin(
+            math.radians(globalWindDirectionDegrees)))
+    windDirection = patches.FancyArrow(
+        arrowStart[0],
+        arrowStart[1],
+        arrowLength *
+        math.cos(
+            math.radians(globalWindDirectionDegrees)),
+        arrowLength *
+        math.sin(
+            math.radians(globalWindDirectionDegrees)),
+        width=arrowLength /
+        4)
     axes.add_patch(windDirection)
 
     # Draw plot
     plt.draw()
     plt.pause(0.001)
 
-def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=False, speedupBeforePlan=1.0, maxAllowableRuntimeSeconds=MAX_ALLOWABLE_PATHFINDING_TOTAL_RUNTIME_SECONDS):
+
+def createPath(
+        state,
+        runtimeSeconds=1.0,
+        numRuns=2,
+        resetSpeedupDuringPlan=False,
+        speedupBeforePlan=1.0,
+        maxAllowableRuntimeSeconds=MAX_ALLOWABLE_PATHFINDING_TOTAL_RUNTIME_SECONDS):
     def getXYLimits(start, goal, extraLengthFraction=0.6):
         # Calculate extra length to allow wider solution space
         width = math.fabs(goal[0] - start[0])
@@ -555,7 +671,8 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
 
     if resetSpeedupDuringPlan:
         speedupDuringPlan = 1.0
-        rospy.loginfo("Setting speedup to this value during planning = {}".format(speedupDuringPlan))
+        rospy.loginfo(
+            "Setting speedup to this value during planning = {}".format(speedupDuringPlan))
         publisher = rospy.Publisher('speedup', Float64, queue_size=4)
         publisher.publish(speedupDuringPlan)
 
@@ -566,7 +683,8 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
     goal = latlonToXY(state.globalWaypoint, referenceLatlon)
     dimensions = getXYLimits(start, goal)
     obstacles = getObstacles(state.AISData.ships, state.position, state.speedKmph, referenceLatlon)
-    globalWindSpeedKmph, globalWindDirectionDegrees = measuredWindToGlobalWind(state.measuredWindSpeedKmph, state.measuredWindDirectionDegrees, state.speedKmph, state.headingDegrees)
+    globalWindSpeedKmph, globalWindDirectionDegrees = measuredWindToGlobalWind(
+        state.measuredWindSpeedKmph, state.measuredWindDirectionDegrees, state.speedKmph, state.headingDegrees)
 
     # If start or goal is invalid, shrink objects and re-run
     def shrinkObstaclesUntilValid(xy, obstacles):
@@ -580,7 +698,8 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
         obstaclesTooCloseList = obstaclesTooClose(xy, obstacles)
         while len(obstaclesTooCloseList) > 0:
             rospy.logerr("start or goal state is not valid")
-            rospy.logerr("Shrinking some obstacles by a factor of {}".format(OBSTACLE_SHRINK_FACTOR))
+            rospy.logerr(
+                "Shrinking some obstacles by a factor of {}".format(OBSTACLE_SHRINK_FACTOR))
             for o in obstaclesTooCloseList:
                 o.shrink(OBSTACLE_SHRINK_FACTOR)
             obstaclesTooCloseList = obstaclesTooClose(xy, obstacles)
@@ -594,12 +713,25 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
         rospy.logerr("Obstacles have been shrinked by factor of at most {}".format(amountShrinked))
 
     # Run the planner multiple times and find the best one
-    rospy.loginfo("Running createLocalPathSS. runtimeSeconds: {}. numRuns: {}. Total time: {} seconds".format(runtimeSeconds, numRuns, runtimeSeconds*numRuns))
+    rospy.loginfo(
+        "Running createLocalPathSS. runtimeSeconds: {}. numRuns: {}. Total time: {} seconds".format(
+            runtimeSeconds,
+            numRuns,
+            runtimeSeconds *
+            numRuns))
 
-    # Create non-blocking plot showing the setup of the pathfinding problem. Useful to understand if the pathfinding problem is invalid or impossible
+    # Create non-blocking plot showing the setup of the pathfinding problem.
+    # Useful to understand if the pathfinding problem is invalid or impossible
     shouldPlot = rospy.get_param('plot_pathfinding_problem', False)
     if shouldPlot:
-        plotPathfindingProblem(globalWindDirectionDegrees, dimensions, start, goal, obstacles, state.headingDegrees, amountShrinked)
+        plotPathfindingProblem(
+            globalWindDirectionDegrees,
+            dimensions,
+            start,
+            goal,
+            obstacles,
+            state.headingDegrees,
+            amountShrinked)
 
     # Take screenshot
     shouldTakeScreenshot = rospy.get_param('screenshot', False)
@@ -616,7 +748,15 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
     for i in range(numRuns):
         # TODO: Incorporate globalWindSpeed into pathfinding?
         rospy.loginfo("Starting path-planning run number: {}".format(i))
-        solution = plan(runtimeSeconds, "RRTStar", 'WeightedLengthAndClearanceCombo', globalWindDirectionDegrees, dimensions, start, goal, obstacles)
+        solution = plan(
+            runtimeSeconds,
+            "RRTStar",
+            'WeightedLengthAndClearanceCombo',
+            globalWindDirectionDegrees,
+            dimensions,
+            start,
+            goal,
+            obstacles)
         if isValidSolution(solution, referenceLatlon, state):
             validSolutions.append(solution)
         else:
@@ -631,11 +771,20 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
 
         # If valid solution can't be found for large runtime, then stop searching
         if totalRuntimeSeconds >= maxAllowableRuntimeSeconds:
-            rospy.logwarn("No valid solution can be found in under {} seconds. Using invalid solution.".format(maxAllowableRuntimeSeconds))
+            rospy.logwarn("No valid solution can be found in under {} seconds. Using invalid solution.".format(
+                maxAllowableRuntimeSeconds))
             break
 
         rospy.logwarn("Attempting to rerun with longer runtime: {} seconds".format(runtimeSeconds))
-        solution = plan(runtimeSeconds, "RRTStar", 'WeightedLengthAndClearanceCombo', globalWindDirectionDegrees, dimensions, start, goal, obstacles)
+        solution = plan(
+            runtimeSeconds,
+            "RRTStar",
+            'WeightedLengthAndClearanceCombo',
+            globalWindDirectionDegrees,
+            dimensions,
+            start,
+            goal,
+            obstacles)
 
         if isValidSolution(solution, referenceLatlon, state):
             validSolutions.append(solution)
@@ -648,13 +797,17 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
         numberOfLocalWaypoints = int(localPathLengthKm / AVG_DISTANCE_BETWEEN_LOCAL_WAYPOINTS_KM)
         solutionPath.interpolate(numberOfLocalWaypoints)
 
-    # If no valid solutions found, use the best invalid one. Do not perform any path simplifying on invalid paths.
+    # If no valid solutions found, use the best invalid one. Do not perform
+    # any path simplifying on invalid paths.
     if len(validSolutions) == 0:
         # Set the average distance between waypoints
         for solution in invalidSolutions:
             setAverageDistanceBetweenWaypoints(solution.getSolutionPath())
 
-        bestSolution = min(invalidSolutions, key=lambda x: x.getSolutionPath().cost(x.getOptimizationObjective()).value())
+        bestSolution = min(
+            invalidSolutions,
+            key=lambda x: x.getSolutionPath().cost(
+                x.getOptimizationObjective()).value())
         bestSolutionPath = bestSolution.getSolutionPath()
         minCost = bestSolutionPath.cost(bestSolution.getOptimizationObjective()).value()
     else:
@@ -695,11 +848,13 @@ def createPath(state, runtimeSeconds=1.0, numRuns=2, resetSpeedupDuringPlan=Fals
     plt.close()
 
     if resetSpeedupDuringPlan:
-        rospy.loginfo("Setting speedup back to its value before planning = {}".format(speedupBeforePlan))
+        rospy.loginfo(
+            "Setting speedup back to its value before planning = {}".format(speedupBeforePlan))
         publisher = rospy.Publisher('speedup', Float64, queue_size=4)
         publisher.publish(speedupBeforePlan)
 
     return Path(OMPLPath(bestSolution, bestSolutionPath, referenceLatlon))
+
 
 def globalWaypointReached(position, globalWaypoint):
     # TODO: Consider fixing globalWaypointReached to not go backwards
@@ -708,52 +863,81 @@ def globalWaypointReached(position, globalWaypoint):
     dist = distance(sailbot, waypt).kilometers
     return distance(sailbot, waypt).kilometers < GLOBAL_WAYPOINT_REACHED_RADIUS_KM
 
+
 def timeLimitExceeded(lastTimePathCreated, speedup):
     # TODO: Figure out a way to make changing speedup work properly for this
     # Shorter time limit when there is speedup
     pathUpdateTimeLimitSecondsSpeedup = PATH_UPDATE_TIME_LIMIT_SECONDS / speedup
     if time.time() - lastTimePathCreated > pathUpdateTimeLimitSecondsSpeedup:
-        rospy.logwarn("{} seconds elapsed. Time limit of {} seconds was exceeded.".format(pathUpdateTimeLimitSecondsSpeedup, PATH_UPDATE_TIME_LIMIT_SECONDS))
+        rospy.logwarn("{} seconds elapsed. Time limit of {} seconds was exceeded.".format(
+            pathUpdateTimeLimitSecondsSpeedup, PATH_UPDATE_TIME_LIMIT_SECONDS))
         return True
     else:
         return False
+
 
 def getDesiredHeadingDegrees(position, localWaypoint):
     xy = latlonToXY(localWaypoint, position)
     return math.degrees(math.atan2(xy[1], xy[0]))
 
-def measuredWindToGlobalWind(measuredWindSpeed, measuredWindDirectionDegrees, boatSpeed, headingDegrees):
-    # Calculate wind speed in boat frame. X is right. Y is forward.
-    measuredWindSpeedXBoatFrame = measuredWindSpeed * math.cos(math.radians(measuredWindDirectionDegrees))
-    measuredWindSpeedYBoatFrame = measuredWindSpeed * math.sin(math.radians(measuredWindDirectionDegrees))
 
-    # Assume boat is moving entirely in heading direction, so all boat speed is in boat frame Y direction
+def measuredWindToGlobalWind(
+        measuredWindSpeed,
+        measuredWindDirectionDegrees,
+        boatSpeed,
+        headingDegrees):
+    # Calculate wind speed in boat frame. X is right. Y is forward.
+    measuredWindSpeedXBoatFrame = measuredWindSpeed * \
+        math.cos(math.radians(measuredWindDirectionDegrees))
+    measuredWindSpeedYBoatFrame = measuredWindSpeed * \
+        math.sin(math.radians(measuredWindDirectionDegrees))
+
+    # Assume boat is moving entirely in heading direction, so all boat speed
+    # is in boat frame Y direction
     trueWindSpeedXBoatFrame = measuredWindSpeedXBoatFrame
     trueWindSpeedYBoatFrame = measuredWindSpeedYBoatFrame + boatSpeed
 
     # Calculate wind speed in global frame. X is EAST. Y is NORTH.
-    trueWindSpeedXGlobalFrame = trueWindSpeedXBoatFrame * math.sin(math.radians(headingDegrees)) + trueWindSpeedYBoatFrame * math.cos(math.radians(headingDegrees))
-    trueWindSpeedYGlobalFrame = trueWindSpeedYBoatFrame * math.sin(math.radians(headingDegrees)) - trueWindSpeedXBoatFrame * math.cos(math.radians(headingDegrees))
+    trueWindSpeedXGlobalFrame = trueWindSpeedXBoatFrame * \
+        math.sin(math.radians(headingDegrees)) + trueWindSpeedYBoatFrame * math.cos(math.radians(headingDegrees))
+    trueWindSpeedYGlobalFrame = trueWindSpeedYBoatFrame * \
+        math.sin(math.radians(headingDegrees)) - trueWindSpeedXBoatFrame * math.cos(math.radians(headingDegrees))
 
     # Calculate global wind speed and direction
     globalWindSpeed = (trueWindSpeedXGlobalFrame**2 + trueWindSpeedYGlobalFrame**2)**0.5
-    globalWindDirectionDegrees = math.degrees(math.atan2(trueWindSpeedYGlobalFrame, trueWindSpeedXGlobalFrame))
+    globalWindDirectionDegrees = math.degrees(
+        math.atan2(
+            trueWindSpeedYGlobalFrame,
+            trueWindSpeedXGlobalFrame))
 
     return globalWindSpeed, globalWindDirectionDegrees
 
-def globalWindToMeasuredWind(globalWindSpeed, globalWindDirectionDegrees, boatSpeed, headingDegrees):
+
+def globalWindToMeasuredWind(
+        globalWindSpeed,
+        globalWindDirectionDegrees,
+        boatSpeed,
+        headingDegrees):
     # Calculate the measuredWindSpeed in the global frame
-    measuredWindSpeedXGlobalFrame = globalWindSpeed * math.cos(math.radians(globalWindDirectionDegrees)) - boatSpeed * math.cos(math.radians(headingDegrees))
-    measuredWindSpeedYGlobalFrame = globalWindSpeed * math.sin(math.radians(globalWindDirectionDegrees)) - boatSpeed * math.sin(math.radians(headingDegrees))
+    measuredWindSpeedXGlobalFrame = globalWindSpeed * \
+        math.cos(math.radians(globalWindDirectionDegrees)) - boatSpeed * math.cos(math.radians(headingDegrees))
+    measuredWindSpeedYGlobalFrame = globalWindSpeed * \
+        math.sin(math.radians(globalWindDirectionDegrees)) - boatSpeed * math.sin(math.radians(headingDegrees))
 
     # Calculated the measuredWindSpeed in the boat frame
-    measuredWindSpeedXBoatFrame = measuredWindSpeedXGlobalFrame * math.sin(math.radians(headingDegrees)) - measuredWindSpeedYGlobalFrame * math.cos(math.radians(headingDegrees))
-    measuredWindSpeedYBoatFrame = measuredWindSpeedXGlobalFrame * math.cos(math.radians(headingDegrees)) + measuredWindSpeedYGlobalFrame * math.sin(math.radians(headingDegrees))
+    measuredWindSpeedXBoatFrame = measuredWindSpeedXGlobalFrame * \
+        math.sin(math.radians(headingDegrees)) - measuredWindSpeedYGlobalFrame * math.cos(math.radians(headingDegrees))
+    measuredWindSpeedYBoatFrame = measuredWindSpeedXGlobalFrame * \
+        math.cos(math.radians(headingDegrees)) + measuredWindSpeedYGlobalFrame * math.sin(math.radians(headingDegrees))
 
-    measuredWindDirectionDegrees = math.degrees(math.atan2(measuredWindSpeedYBoatFrame, measuredWindSpeedXBoatFrame))
+    measuredWindDirectionDegrees = math.degrees(
+        math.atan2(
+            measuredWindSpeedYBoatFrame,
+            measuredWindSpeedXBoatFrame))
     measuredWindSpeed = (measuredWindSpeedYBoatFrame**2 + measuredWindSpeedXBoatFrame**2)**0.5
 
     return measuredWindSpeed, measuredWindDirectionDegrees
+
 
 def headingToBearingDegrees(headingDegrees):
     # Heading is defined using cartesian coordinates. 0 degrees is East. 90 degrees in North. 270 degrees is South.
@@ -767,6 +951,7 @@ def isValid(xy, obstacles):
         if not obstacle.isValid(xy):
             return False
     return True
+
 
 class ObstacleInterface:
     def __init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon):
@@ -799,6 +984,7 @@ class ObstacleInterface:
         """ Shrinks the obstacle by the shrink factor"""
         pass
 
+
 class Ellipse():
     def __init__(self, x, y, height, width, angle):
         self.x = x
@@ -806,7 +992,7 @@ class Ellipse():
         self.height = height
         self.width = width
         self.angle = angle
-    
+
     def __str__(self):
         return str((self.x, self.y, self.height, self.width, self.angle))
 
@@ -814,29 +1000,32 @@ class Ellipse():
         delta = 0.001
         x = xy[0] - self.x
         y = xy[1] - self.y
-        x_ = math.cos(math.radians(self.angle)) * x + math.sin(math.radians(self.angle)) * y 
-        y_ = -math.sin(math.radians(self.angle)) * x + math.cos(math.radians(self.angle)) * y 
+        x_ = math.cos(math.radians(self.angle)) * x + math.sin(math.radians(self.angle)) * y
+        y_ = -math.sin(math.radians(self.angle)) * x + math.cos(math.radians(self.angle)) * y
         distance_center_to_boat = math.sqrt(x_ ** 2 + y_ ** 2)
         angle_center_to_boat = math.degrees(math.atan2(y_, x_))
-        angle_center_to_boat = (angle_center_to_boat + 360) % 360 
-    
-        a = self.width * 0.5 
-        b = self.height * 0.5 
-    
-        t_param = math.atan2(a * y_, b * x_) 
-        edge_pt = self._ellipseFormula(t_param) 
-        distance_to_edge = math.sqrt((edge_pt[0] - self.x) ** 2 +  (edge_pt[1] - self.y) ** 2)
+        angle_center_to_boat = (angle_center_to_boat + 360) % 360
 
-        if distance_center_to_boat < distance_to_edge or math.fabs(distance_to_edge - distance_center_to_boat) <= delta: 
+        a = self.width * 0.5
+        b = self.height * 0.5
+
+        t_param = math.atan2(a * y_, b * x_)
+        edge_pt = self._ellipseFormula(t_param)
+        distance_to_edge = math.sqrt((edge_pt[0] - self.x) ** 2 + (edge_pt[1] - self.y) ** 2)
+
+        if distance_center_to_boat < distance_to_edge or math.fabs(
+                distance_to_edge - distance_center_to_boat) <= delta:
             return False
         return True
-        
-    def _ellipseFormula(self, t): 
+
+    def _ellipseFormula(self, t):
         init_pt = np.array([self.x, self.y])
         a = 0.5 * self.width
         b = 0.5 * self.height
-        rotation_col1 = np.array([math.cos(math.radians(self.angle)), math.sin(math.radians(self.angle))]) 
-        rotation_col2 = np.array([-math.sin(math.radians(self.angle)), math.cos(math.radians(self.angle))]) 
+        rotation_col1 = np.array([math.cos(math.radians(self.angle)),
+                                  math.sin(math.radians(self.angle))])
+        rotation_col2 = np.array([-math.sin(math.radians(self.angle)),
+                                  math.cos(math.radians(self.angle))])
         edge_pt = init_pt + a * math.cos(t) * rotation_col1 + b * math.sin(t) * rotation_col2
         return edge_pt
 
@@ -844,13 +1033,18 @@ class Ellipse():
         axes.add_patch(patches.Ellipse((self.x, self.y), self.width, self.height, self.angle))
 
     def shrink(self, shrinkFactor):
-        self.width /= shrinkFactor 
-        self.height /= shrinkFactor 
+        self.width /= shrinkFactor
+        self.height /= shrinkFactor
+
 
 class EllipseObstacle(ObstacleInterface, Ellipse):
     def __init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon):
         ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
-        self._extendObstacle(self.aisData, self.sailbotPosition, self.speedKmph, self.referenceLatlon)
+        self._extendObstacle(
+            self.aisData,
+            self.sailbotPosition,
+            self.speedKmph,
+            self.referenceLatlon)
 
     def __str__(self):
         return Ellipse.__str__(self)
@@ -859,7 +1053,8 @@ class EllipseObstacle(ObstacleInterface, Ellipse):
         aisX, aisY = latlonToXY(latlon(aisData.lat, aisData.lon), referenceLatlon)
 
         # Calculate length to extend boat
-        distanceToBoatKm = distance((aisData.lat, aisData.lon), (sailbotPosition.lat, sailbotPosition.lon)).kilometers
+        distanceToBoatKm = distance((aisData.lat, aisData.lon),
+                                    (sailbotPosition.lat, sailbotPosition.lon)).kilometers
         if sailbotSpeedKmph == 0 or distanceToBoatKm / sailbotSpeedKmph > OBSTACLE_MAX_TIME_TO_LOC_HOURS:
             timeToLocHours = OBSTACLE_MAX_TIME_TO_LOC_HOURS
         else:
@@ -872,16 +1067,26 @@ class EllipseObstacle(ObstacleInterface, Ellipse):
             width = extendBoatLengthKm
         height = AIS_BOAT_RADIUS_KM
         angle = aisData.headingDegrees
-        xy = [aisX + extendBoatLengthKm * math.cos(math.radians(angle)) * 0.5, aisY + extendBoatLengthKm * math.sin(math.radians(angle)) * 0.5]
+        xy = [
+            aisX +
+            extendBoatLengthKm *
+            math.cos(
+                math.radians(angle)) *
+            0.5,
+            aisY +
+            extendBoatLengthKm *
+            math.sin(
+                math.radians(angle)) *
+            0.5]
         self.x, self.y = xy[0], xy[1]
         self.width, self.height = width, height
         self.angle = angle
-    
+
     def isValid(self, xy):
-         return Ellipse.isValid(self, xy)
-        
-    def _ellipseFormula(self, t): 
-         return Ellipse._ellipseFormula(self, t)
+        return Ellipse.isValid(self, xy)
+
+    def _ellipseFormula(self, t):
+        return Ellipse._ellipseFormula(self, t)
 
     def addPatch(self, axes):
         Ellipse.addPatch(self, axes)
@@ -893,14 +1098,19 @@ class EllipseObstacle(ObstacleInterface, Ellipse):
         # TODO: Make this clearance better
         return (self.x - xy[0])**2 + (self.y - xy[1])**2
 
+
 class Wedge(ObstacleInterface):
     def __init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon):
-            ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
-            self._extendObstacle(self.aisData, self.sailbotPosition, self.speedKmph, self.referenceLatlon)
+        ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
+        self._extendObstacle(
+            self.aisData,
+            self.sailbotPosition,
+            self.speedKmph,
+            self.referenceLatlon)
 
     def __str__(self):
-            return str((self.x, self.y, self.radius, self.theta1, self.theta2))
-    
+        return str((self.x, self.y, self.radius, self.theta1, self.theta2))
+
     def _extendObstacle(self, aisData, sailbotPosition, sailbotSpeedKmph, referenceLatlon):
         aisX, aisY = latlonToXY(latlon(aisData.lat, aisData.lon), referenceLatlon)
 
@@ -911,7 +1121,8 @@ class Wedge(ObstacleInterface):
         if theta2 > 360:
             theta2 -= 360
 
-        distanceToBoatKm = distance((aisData.lat, aisData.lon), (sailbotPosition.lat, sailbotPosition.lon)).kilometers
+        distanceToBoatKm = distance((aisData.lat, aisData.lon),
+                                    (sailbotPosition.lat, sailbotPosition.lon)).kilometers
         if sailbotSpeedKmph == 0 or distanceToBoatKm / sailbotSpeedKmph > OBSTACLE_MAX_TIME_TO_LOC_HOURS:
             timeToLocHours = OBSTACLE_MAX_TIME_TO_LOC_HOURS
         else:
@@ -929,7 +1140,7 @@ class Wedge(ObstacleInterface):
         angle = math.degrees(math.atan2(xy[1] - self.y, xy[0] - self.x))
         if angle < 0:
             angle += 360
-        distance = math.sqrt((xy[1] - self.y) **2 + (xy[0] - self.x) ** 2)
+        distance = math.sqrt((xy[1] - self.y) ** 2 + (xy[0] - self.x) ** 2)
         if (angle > self.theta1 and angle < self.theta2 and distance < self.radius):
             return False
         return True
@@ -939,12 +1150,17 @@ class Wedge(ObstacleInterface):
         return (self.x - xy[0])**2 + (self.y - xy[1])**2
 
     def shrink(self, shrinkFactor):
-        self.radius /= shrinkFactor 
+        self.radius /= shrinkFactor
+
 
 class Circles(ObstacleInterface):
     def __init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon):
-            ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
-            self._extendObstacle(self.aisData, self.sailbotPosition, self.speedKmph, self.referenceLatlon)
+        ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
+        self._extendObstacle(
+            self.aisData,
+            self.sailbotPosition,
+            self.speedKmph,
+            self.referenceLatlon)
 
     def isValid(self, xy):
         for obstacle in self.obstacles:
@@ -956,7 +1172,8 @@ class Circles(ObstacleInterface):
         self.obstacles = []
         aisX, aisY = latlonToXY(latlon(aisData.lat, aisData.lon), referenceLatlon)
         # Calculate length to extend boat
-        distanceToBoatKm = distance((aisData.lat, aisData.lon), (sailbotPosition.lat, sailbotPosition.lon)).kilometers
+        distanceToBoatKm = distance((aisData.lat, aisData.lon),
+                                    (sailbotPosition.lat, sailbotPosition.lon)).kilometers
         if sailbotSpeedKmph == 0 or distanceToBoatKm / sailbotSpeedKmph > OBSTACLE_MAX_TIME_TO_LOC_HOURS:
             timeToLocHours = OBSTACLE_MAX_TIME_TO_LOC_HOURS
         else:
@@ -966,7 +1183,6 @@ class Circles(ObstacleInterface):
         if extendBoatLengthKm == 0:
             self.obstacles.append(Circle(aisX, aisY, AIS_BOAT_RADIUS_KM))
 
-
         if aisData.headingDegrees == 90 or aisData.headingDegrees == 270:
             if aisData.headingDegrees == 90:
                 endY = aisY + extendBoatLengthKm
@@ -975,7 +1191,8 @@ class Circles(ObstacleInterface):
                 endY = aisY - extendBoatLengthKm
                 yRange = np.arange(endY, aisY, AIS_BOAT_CIRCLE_SPACING_KM)
             for y in yRange:
-                # Multiplier to increase size of circles showing where the boat will be in the future in range [1, 2]
+                # Multiplier to increase size of circles showing where the boat will be in
+                # the future in range [1, 2]
                 multiplier = 1 + abs(float(y - aisY) / (endY - aisY))
                 self.obstacles.append(Circle(aisX, y, AIS_BOAT_RADIUS_KM * multiplier))
         else:
@@ -987,8 +1204,13 @@ class Circles(ObstacleInterface):
                 b = aisY + slope * -math.fabs(aisX)
             else:
                 b = aisY + slope * math.fabs(aisX)
-            xDistTravelled =  math.fabs(extendBoatLengthKm * math.cos(math.radians(aisData.headingDegrees)))
-            y = lambda x: slope * x + b 
+            xDistTravelled = math.fabs(
+                extendBoatLengthKm *
+                math.cos(
+                    math.radians(
+                        aisData.headingDegrees)))
+
+            def y(x): return slope * x + b
             if isHeadingWest:
                 endX = aisX - xDistTravelled
                 xRange = np.arange(endX, aisX, dx)
@@ -996,7 +1218,8 @@ class Circles(ObstacleInterface):
                 endX = aisX + xDistTravelled
                 xRange = np.arange(aisX, endX, dx)
             for x in xRange:
-                # Multiplier to increase size of circles showing where the boat will be in the future in range [1, 2]
+                # Multiplier to increase size of circles showing where the boat will be in
+                # the future in range [1, 2]
                 multiplier = 1 + abs(float(x - aisX) / (endX - aisX))
                 self.obstacles.append(Circle(x, y(x), AIS_BOAT_RADIUS_KM * multiplier))
 
@@ -1012,8 +1235,10 @@ class Circles(ObstacleInterface):
         # TODO: Make this clearance better
         return (self.obstacles[0].x - xy[0])**2 + (self.obstacles[0].y - xy[1])**2
 
+
 class Circle():
     """ Helper class for Circles representation"""
+
     def __init__(self, x, y, radius):
         self.x = x
         self.y = y
@@ -1029,14 +1254,24 @@ class Circle():
         axes.add_patch(plt.Circle((self.x, self.y), radius=self.radius))
 
     def shrink(self, shrinkFactor):
-        self.radius /= shrinkFactor 
+        self.radius /= shrinkFactor
+
 
 class HybridEllipse(ObstacleInterface):
     def __init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon):
         ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
-        self._extendObstacle(self.aisData, self.sailbotPosition, self.speedKmph, self.referenceLatlon)
+        self._extendObstacle(
+            self.aisData,
+            self.sailbotPosition,
+            self.speedKmph,
+            self.referenceLatlon)
         self.xy = latlonToXY(latlon(aisData.lat, aisData.lon), referenceLatlon)
-        self.ellipse = Ellipse(self.xy[0], self.xy[1], AIS_BOAT_RADIUS_KM, AIS_BOAT_LENGTH_KM, aisData.headingDegrees)
+        self.ellipse = Ellipse(
+            self.xy[0],
+            self.xy[1],
+            AIS_BOAT_RADIUS_KM,
+            AIS_BOAT_LENGTH_KM,
+            aisData.headingDegrees)
 
     def __str__(self):
         return str(self.ellipse) + str(self.wedge)
@@ -1049,7 +1284,7 @@ class HybridEllipse(ObstacleInterface):
         self.ellipse.addPatch(axes)
 
     def isValid(self, xy):
-        return (self.wedge.isValid(xy) and self.ellipse.isValid(xy))        
+        return (self.wedge.isValid(xy) and self.ellipse.isValid(xy))
 
     def clearance(self, xy):
         return (self.xy[0] - xy[0])**2 + (self.xy[1] - xy[1])**2
@@ -1057,11 +1292,16 @@ class HybridEllipse(ObstacleInterface):
     def shrink(self, shrinkFactor):
         self.ellipse.shrink(shrinkFactor)
         self.wedge.shrink(shrinkFactor)
-    
+
+
 class HybridCircle(ObstacleInterface):
     def __init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon):
         ObstacleInterface.__init__(self, aisData, sailbotPosition, speedKmph, referenceLatlon)
-        self._extendObstacle(self.aisData, self.sailbotPosition, self.speedKmph, self.referenceLatlon)
+        self._extendObstacle(
+            self.aisData,
+            self.sailbotPosition,
+            self.speedKmph,
+            self.referenceLatlon)
         self.xy = latlonToXY(latlon(aisData.lat, aisData.lon), referenceLatlon)
         self.circle = Circle(self.xy[0], self.xy[1], AIS_BOAT_RADIUS_KM)
 
@@ -1076,7 +1316,7 @@ class HybridCircle(ObstacleInterface):
         self.circle.addPatch(axes)
 
     def isValid(self, xy):
-        return (self.wedge.isValid(xy) and self.circle.isValid(xy))        
+        return (self.wedge.isValid(xy) and self.circle.isValid(xy))
 
     def clearance(self, xy):
         return (self.xy[0] - xy[0])**2 + (self.xy[1] - xy[1])**2
@@ -1084,6 +1324,7 @@ class HybridCircle(ObstacleInterface):
     def shrink(self, shrinkFactor):
         self.circle.shrink(shrinkFactor)
         self.wedge.shrink(shrinkFactor)
+
 
 def getObstacles(ships, position, speedKmph, referenceLatlon):
     obstacle_type = rospy.get_param('obstacle_type', 'ellipse')
@@ -1105,8 +1346,10 @@ def getObstacles(ships, position, speedKmph, referenceLatlon):
             obstacles.append(HybridCircle(ship, position, speedKmph, referenceLatlon))
     return obstacles
 
+
 def pathCostThresholdExceeded(currentCost):
     return currentCost > COST_THRESHOLD
+
 
 def waitForGlobalPath(sailbot):
     while not sailbot.newGlobalPathReceived:

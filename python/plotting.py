@@ -12,17 +12,19 @@ def create_numpy_path(states):
         array[i][1] = float(lines[i].split(" ")[1])
     return array
 
+
 def plot_path(solution_matrix, dimensions, obstacles):
     path = create_numpy_path(solution_matrix)
     x, y = path.T
     ax = plt.gca()
     ax.plot(x, y, 'r--')
-    ax.plot(x, y, 'go') 
+    ax.plot(x, y, 'go')
     ax.axis(xmin=dimensions[0], xmax=dimensions[2], ymin=dimensions[1], ymax=dimensions[3])
     for obstacle in obstacles:
         ax.add_patch(plt.Circle((obstacle.x, obstacle.y), radius=obstacle.radius))
 
     plt.show()
+
 
 def plot_path_2(solution_latlons, obstacles):
     path = np.zeros((len(solution_latlons), 2))
@@ -33,7 +35,7 @@ def plot_path_2(solution_latlons, obstacles):
     x, y = path.T
     ax = plt.gca()
     ax.plot(x, y, 'r--')
-    ax.plot(x, y, 'go') 
+    ax.plot(x, y, 'go')
 
     lats = [point.lat for point in solution_latlons]
     minLat = min(lats)
@@ -48,4 +50,3 @@ def plot_path_2(solution_latlons, obstacles):
         ax.add_patch(plt.Circle((obstacle.x, obstacle.y), radius=obstacle.radius))
 
     plt.show()
-

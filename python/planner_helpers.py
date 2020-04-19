@@ -9,12 +9,12 @@ from ompl import control as oc
 from math import sqrt
 
 ##
-## planner_helpers.py
-## ------------------
-## This file contains helper functions
-## for the OMPL planner, such as the 
-## ValidityChecker and the objective
-## functions.
+# planner_helpers.py
+# ------------------
+# This file contains helper functions
+# for the OMPL planner, such as the
+# ValidityChecker and the objective
+# functions.
 ##
 
 # Upwind downwind constants
@@ -34,6 +34,7 @@ SMALL_TURN_MULTIPLIER = 10.0
 # Upwind downwind cost multipliers
 UPWIND_MULTIPLIER = 3000.0
 DOWNWIND_MULTIPLIER = 3000.0
+
 
 class ValidityChecker(ob.StateValidityChecker):
     def __init__(self, si, obstacles):
@@ -59,6 +60,7 @@ class ValidityChecker(ob.StateValidityChecker):
                 return 0
             clearance = min(clearance, obstacle.clearance(xy))
         return clearance
+
 
 class ClearanceObjective(ob.StateCostIntegralObjective):
     def __init__(self, si):
@@ -87,14 +89,17 @@ class MinTurningObjective(ob.StateCostIntegralObjective):
 
         # Calculate turn size
         try:
-            turn_size_radians = abs_angle_dist_radians(direction_radians, self.last_direction_radians)
+            turn_size_radians = abs_angle_dist_radians(
+                direction_radians, self.last_direction_radians)
         except AttributeError:
             # Handle edge case first angle
             self.last_direction_radians = direction_radians
-            turn_size_radians = abs_angle_dist_radians(direction_radians, self.last_direction_radians)
+            turn_size_radians = abs_angle_dist_radians(
+                direction_radians, self.last_direction_radians)
 
         # Calculate cost based on size of turn. Large turn is related to tacking angles.
-        large_turn_threshold = math.radians(2 * max(UPWIND_MAX_ANGLE_DEGREES, DOWNWIND_MAX_ANGLE_DEGREES))
+        large_turn_threshold = math.radians(
+            2 * max(UPWIND_MAX_ANGLE_DEGREES, DOWNWIND_MAX_ANGLE_DEGREES))
         if turn_size_radians > large_turn_threshold:
             return LARGE_TURN_MULTIPLIER * turn_size_radians
         else:
@@ -105,7 +110,7 @@ class WindObjective(ob.StateCostIntegralObjective):
     def __init__(self, si):
         super(WindObjective, self).__init__(si, True)
         self.si_ = si
-        self.windDirectionDegrees = 90 # north wind default
+        self.windDirectionDegrees = 90  # north wind default
 
     # This objective function punishes the boat for going up/downwind
     def motionCost(self, s1, s2):
@@ -119,29 +124,43 @@ class WindObjective(ob.StateCostIntegralObjective):
         else:
             return 0.0
 
+
 def isUpwind(windDirectionRadians, boatDirectionRadians):
     diffRadians = abs_angle_dist_radians(windDirectionRadians, boatDirectionRadians)
     return math.fabs(diffRadians - math.radians(180)) < math.radians(UPWIND_MAX_ANGLE_DEGREES)
+
 
 def isDownwind(windDirectionRadians, boatDirectionRadians):
     diffRadians = abs_angle_dist_radians(windDirectionRadians, boatDirectionRadians)
     return math.fabs(diffRadians) < math.radians(DOWNWIND_MAX_ANGLE_DEGREES)
 
+
 def abs_angle_dist_radians(angle1_radians, angle2_radians):
     # Absolute distance between angles
-    fabs = math.fabs(math.atan2(math.sin(angle1_radians - angle2_radians), math.cos(angle1_radians - angle2_radians)))
+    fabs = math.fabs(
+        math.atan2(
+            math.sin(
+                angle1_radians -
+                angle2_radians),
+            math.cos(
+                angle1_radians -
+                angle2_radians)))
     return fabs
+
 
 def get_clearance_objective(si):
     return ClearanceObjective(si)
 
+
 def get_path_length_objective(si):
     return ob.PathLengthOptimizationObjective(si)
+
 
 def get_threshold_path_length_objective(si):
     obj = ob.PathLengthOptimizationObjective(si)
     # obj.setCostThreshold(ob.Cost(8))
     return obj
+
 
 def getBalancedObjective(si):
     lengthObj = ob.PathLengthOptimizationObjective(si)
@@ -160,6 +179,8 @@ def getBalancedObjective(si):
     return opt
 
 # Keep these in alphabetical order and all lower case
+
+
 def allocate_objective(si, objectiveType):
     if objectiveType.lower() == "pathclearance":
         return get_clearance_objective(si)
@@ -171,4 +192,3 @@ def allocate_objective(si, objectiveType):
         return getBalancedObjective(si)
     else:
         ou.OMPL_ERROR("Optimization-objective is not implemented in allocation function.")
-

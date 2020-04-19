@@ -1,19 +1,20 @@
 #! /usr/bin/env python
 
 # Add python directory to path
-import sys, os
+import matplotlib.pyplot as plt
+from math import sqrt
+from geopy.distance import distance
+from Sailbot import *
+import local_pathfinding.msg as msg
+import rospy
+import rostest
+import unittest
+import sys
+import os
 testdir = os.path.dirname(__file__)
 srcdir = '../python'
 sys.path.insert(0, os.path.abspath(os.path.join(testdir, srcdir)))
 
-import unittest
-import rostest
-import rospy
-import local_pathfinding.msg as msg
-from Sailbot import *
-from geopy.distance import distance
-from math import sqrt
-import matplotlib.pyplot as plt
 
 class TestSailbot(unittest.TestCase):
     def setUp(self):
@@ -59,8 +60,14 @@ class TestSailbot(unittest.TestCase):
 
         # Check that currentState has been updated
         state = self.sailbot.getCurrentState()
-        self.assertAlmostEqual(state.measuredWindDirectionDegrees, windSensorMsg.measuredDirectionDegrees, places=3)
-        self.assertAlmostEqual(state.measuredWindSpeedKmph, windSensorMsg.measuredSpeedKmph, places=3)
+        self.assertAlmostEqual(
+            state.measuredWindDirectionDegrees,
+            windSensorMsg.measuredDirectionDegrees,
+            places=3)
+        self.assertAlmostEqual(
+            state.measuredWindSpeedKmph,
+            windSensorMsg.measuredSpeedKmph,
+            places=3)
 
     def test_AIS(self):
         # Setup AIS message with multiple ships
@@ -97,7 +104,8 @@ class TestSailbot(unittest.TestCase):
         # Check that sailbot received the new path
         self.assertEqual(len(self.sailbot.globalPath), numWaypoints)
 
-        # Check that currentState has been updated next global waypoint should be the second element of the waypoints list
+        # Check that currentState has been updated next global waypoint should be
+        # the second element of the waypoints list
         state = self.sailbot.getCurrentState()
         self.assertAlmostEqual(state.globalWaypoint.lat, waypoints[1].lat, places=3)
         self.assertAlmostEqual(state.globalWaypoint.lon, waypoints[1].lon, places=3)
@@ -129,6 +137,7 @@ class TestSailbot(unittest.TestCase):
         state = self.sailbot.getCurrentState()
         self.assertAlmostEqual(state.globalWaypoint.lat, waypoints[numWaypoints - 1].lat, places=3)
         self.assertAlmostEqual(state.globalWaypoint.lon, waypoints[numWaypoints - 1].lon, places=3)
+
 
 if __name__ == '__main__':
     rostest.rosrun('local_pathfinding', 'test_sailbot', TestSailbot)

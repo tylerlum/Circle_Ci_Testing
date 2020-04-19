@@ -12,6 +12,7 @@ from matplotlib import patches
 
 VALIDITY_CHECKING_RESOLUTION = 0.001  # Default 0.01
 
+
 def absolute_distance_between_angles(angle1, angle2):
     fabs = math.fabs(math.atan2(math.sin(angle1 - angle2), math.cos(angle1 - angle2)))
     return fabs
@@ -47,7 +48,8 @@ def indexOfObstacleOnPath(positionXY, nextLocalWaypointIndex, numLookAheadWaypoi
 
     # Handle strange cases with less than 2 states
     if len(solutionPath.getStates()) <= 1:
-        print("WARNING: len(solutionPath.getStates()) = {}. Expected >1.".format(len(solutionPath.getStates())))
+        print("WARNING: len(solutionPath.getStates()) = {}. Expected >1.".format(
+            len(solutionPath.getStates())))
         if len(solutionPath.getStates()) == 0:
             return -1
         else:
@@ -76,7 +78,6 @@ def indexOfObstacleOnPath(positionXY, nextLocalWaypointIndex, numLookAheadWaypoi
         if hasObstacle:
             return stateIndex
 
-
     '''Uncomment to visualize the obstacles, relevant states, and all states
     ax = plt.gca()
     for obstacle in obstacles:
@@ -104,7 +105,16 @@ def indexOfObstacleOnPath(positionXY, nextLocalWaypointIndex, numLookAheadWaypoi
 
     return -1
 
-def plan(run_time, planner_type, objective_type, wind_direction_degrees, dimensions, start_pos, goal_pos, obstacles):
+
+def plan(
+        run_time,
+        planner_type,
+        objective_type,
+        wind_direction_degrees,
+        dimensions,
+        start_pos,
+        goal_pos,
+        obstacles):
     # Construct the robot state space in which we're planning
     space = ob.SE2StateSpace()
 
@@ -123,7 +133,8 @@ def plan(run_time, planner_type, objective_type, wind_direction_degrees, dimensi
     # Construct a space information instance for this state space
     si = ss.getSpaceInformation()
 
-    # Set resolution of state validity checking, which is fraction of space's extent (Default is 0.01)
+    # Set resolution of state validity checking, which is fraction of space's
+    # extent (Default is 0.01)
     si.setStateValidityCheckingResolution(VALIDITY_CHECKING_RESOLUTION)
 
     # Set the objects used to check which states in the space are valid
@@ -143,7 +154,8 @@ def plan(run_time, planner_type, objective_type, wind_direction_degrees, dimensi
     # Set the start and goal states
     ss.setStartAndGoalStates(start, goal)
 
-    # Create the optimization objective (helper function is simply a switch statement) and set wind direction
+    # Create the optimization objective (helper function is simply a switch
+    # statement) and set wind direction
     objective = ph.allocate_objective(si, objective_type)
     for i in range(objective.getObjectiveCount()):
         if isinstance(objective.getObjective(i), ph.WindObjective):
