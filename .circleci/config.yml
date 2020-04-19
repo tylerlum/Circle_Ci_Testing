@@ -16,5 +16,8 @@ jobs:
           path: /catkin_ws/src/local_pathfinding
       - run: source /opt/ros/melodic/setup.bash && cd /catkin_ws && catkin_make
 
+      # Run flake8 for style guide check
+      - run: pip install flake8 && flake8 --statistics --max-line-length 99
+
       # Run tests and check results
       - run: source /opt/ros/melodic/setup.bash && source /catkin_ws/devel/setup.bash && cd /catkin_ws && catkin_make run_tests && catkin_test_results
