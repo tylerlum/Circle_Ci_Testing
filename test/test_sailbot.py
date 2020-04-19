@@ -10,7 +10,7 @@ import unittest
 import rostest
 import rospy
 import local_pathfinding.msg as msg
-from utilities import *
+import utilities as utils
 from Sailbot import *
 from geopy.distance import distance
 from math import sqrt
