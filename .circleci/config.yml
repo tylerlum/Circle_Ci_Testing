@@ -2,7 +2,7 @@
 
 version: 2.1
 jobs:
-  test:
+  build:
     docker:
       - image: tylerlum/ros_ompl_python_2:04.2020.V1
     steps:
