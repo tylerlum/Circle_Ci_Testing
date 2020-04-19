@@ -1,6 +1,18 @@
 # CircleCi Configuration for local_pathfinding
 
-version: 2.1
+workflows:
+  version: 1.0
+  build-deploy:
+    jobs:
+      - build
+      - flake:
+          requires:
+            - build
+      - test:
+          requires:
+            - build
+
+version: 1.0
 jobs:
   build:
     docker:
@@ -16,8 +28,18 @@ jobs:
           path: /catkin_ws/src/local_pathfinding
       - run: source /opt/ros/melodic/setup.bash && cd /catkin_ws && catkin_make
 
+  flake:
+    docker:
+      - image: tylerlum/ros_ompl_python_2:04.2020.V1
+    steps:
       # Run flake8 for style guide check
       - run: pip install flake8 && flake8 --statistics --max-line-length 99 /catkin_ws/src/local_pathfinding
 
+  test:
+    docker:
+      - image: tylerlum/ros_ompl_python_2:04.2020.V1
+    steps:
       # Run tests and check results
       - run: source /opt/ros/melodic/setup.bash && source /catkin_ws/devel/setup.bash && cd /catkin_ws && catkin_make run_tests && catkin_test_results
+
+
