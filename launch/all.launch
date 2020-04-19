@@ -1,0 +1,29 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- main_loop logs. Can be 'log' to be stored in log file or 'screen' to be printed to screen. -->
+    <arg name="main_loop_output" default="screen" />
+
+    <!-- Setup mocks. View launch_all_mocks.launch for argument descriptions. -->
+    <arg name="initial_speedup" default="1.0" />
+    <arg name="obstacle_type" default="hybrid_circle" />
+    <arg name="ais_file" default="" />
+    <arg name="gps_file" default="" />
+    <arg name="goal_file" default="" />
+    <arg name="wind_file" default="" />
+    <arg name="screenshot" default="false" />
+    <arg name="plot_pathfinding_problem" default="false" />
+    <include file="$(find local_pathfinding)/launch/launch_all_mocks.launch">
+      <arg name="initial_speedup" value="$(arg initial_speedup)"/>
+      <arg name="ais_file" value="$(arg ais_file)"/>
+      <arg name="gps_file" value="$(arg gps_file)"/>
+      <arg name="goal_file" value="$(arg goal_file)"/>
+      <arg name="wind_file" value="$(arg wind_file)"/>
+      <arg name="obstacle_type" value="$(arg obstacle_type)"/>
+      <arg name="screenshot" value="$(arg screenshot)"/>
+      <arg name="plot_pathfinding_problem" value="$(arg plot_pathfinding_problem)"/>
+    </include>
+
+    <node pkg="local_pathfinding" type="main_loop.py" name="main_loop" output="$(arg main_loop_output)"/>
+    <node pkg="local_pathfinding" type="local_path_visualizer.py" name="local_path_visualizer" />
+    <node pkg="local_pathfinding" type="collision_checker.py" name="collision_checker" />
+</launch>
